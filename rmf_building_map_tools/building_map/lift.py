@@ -182,7 +182,10 @@ class Lift:
         if 'highest_floor' in yaml_node:
             self.highest_floor = str(yaml_node['highest_floor'])
             if self.highest_floor:
-                self.highest_elevation = levels[self.highest_floor].elevation
+                if self.highest_floor.isdigit():
+                    self.highest_elevation = levels[int(self.highest_floor)].elevation
+                else:
+                    self.highest_elevation = levels[self.highest_floor].elevation
             else:
                 self.highest_elevation = float('inf')
         else:
@@ -191,7 +194,10 @@ class Lift:
         if 'lowest_floor' in yaml_node:
             self.lowest_floor = str(yaml_node['lowest_floor'])
             if self.lowest_floor:
-                self.lowest_elevation = levels[self.lowest_floor].elevation
+                if self.lowest_floor.isdigit():
+                    self.lowest_elevation = levels[int(self.lowest_floor)].elevation
+                else:
+                    self.lowest_elevation = levels[self.lowest_floor].elevation
             else:
                 self.lowest_elevation = -float('inf')
         else:
