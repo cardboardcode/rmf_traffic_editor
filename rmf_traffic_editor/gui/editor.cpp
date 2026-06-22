@@ -214,6 +214,7 @@ Editor::Editor()
   right_tab_widget->addTab(crowd_sim_table, "crowds");
 
   property_editor = new QTableWidget;
+  property_editor->viewport()->installEventFilter(this);
   property_editor->setStyleSheet(
     "QTableWidget { background-color: #e0e0e0; color: black; gridline-color: #606060; } QLineEdit { background:white; }");
   property_editor->setMinimumSize(600, 200);
@@ -232,9 +233,24 @@ Editor::Editor()
   property_editor->verticalHeader()->setSectionResizeMode(
     QHeaderView::ResizeToContents);
   property_editor->setAutoFillBackground(true);
+  property_editor->setSelectionBehavior(QAbstractItemView::SelectRows);
   connect(
     property_editor, &QTableWidget::cellChanged,
     this, &Editor::property_editor_cell_changed);
+  connect(
+    property_editor, &QTableWidget::itemSelectionChanged,
+    [this]()
+    {
+      const int row = property_editor->currentRow();
+      if (row < 0)
+      {
+        delete_param_button->setEnabled(false);
+        return;
+      }
+      QTableWidgetItem* item = property_editor->item(row, 0);
+      delete_param_button->setEnabled(
+        item && item->data(Qt::UserRole).toBool());
+    });
 
   QHBoxLayout* param_button_layout = new QHBoxLayout;
 
@@ -679,6 +695,24 @@ void Editor::restore_previous_viewport()
     printf("resetting view...\n");
     zoom_reset();
   }
+}
+
+bool Editor::eventFilter(QObject* obj, QEvent* event)
+{
+  if (obj == property_editor->viewport() &&
+    event->type() == QEvent::MouseButtonPress)
+  {
+    QMouseEvent* me = static_cast<QMouseEvent*>(event);
+    QModelIndex idx = property_editor->indexAt(me->pos());
+    if (!idx.isValid())
+    {
+      // clicking the empty space would clear the selection
+      property_editor->clearSelection();
+      property_editor->setCurrentIndex(QModelIndex());
+      delete_param_button->setEnabled(false);
+    }
+  }
+  return QMainWindow::eventFilter(obj, event);
 }
 
 bool Editor::load_previous_building()
@@ -1355,10 +1389,34 @@ void Editor::add_param_button_clicked()
 
 void Editor::delete_param_button_clicked()
 {
-  QMessageBox::about(
-    this,
-    "work in progress",
-    "TODO: something...sorry. For now, hand-edit the YAML.");
+  const int row = property_editor->currentRow();
+  if (row < 0)
+    return;
+
+  QTableWidgetItem* name_item = property_editor->item(row, 0);
+  if (!name_item)
+    return;
+
+  const std::string param_name = name_item->text().toStdString();
+
+  for (size_t i = 0; i < building.levels[level_idx].vertices.size(); i++)
+  {
+    Vertex& v = building.levels[level_idx].vertices[i];
+    if (!v.selected)
+      continue;
+
+    auto it = v.params.find(param_name);
+    if (it != v.params.end())
+    {
+      v.params.erase(it);
+      populate_property_editor(v, i);
+      property_editor->clearSelection(); // prevents itemSelectionChanged re-enabling it
+      delete_param_button->setEnabled(false);
+      setWindowModified(true);
+      create_scene();
+      return;
+    }
+  }
 }
 
 void Editor::layer_edit_button_clicked(const int row_idx)
@@ -1543,11 +1601,15 @@ void Editor::populate_property_editor(const Vertex& vertex, const int index)
       QString::fromStdString(param.first),
       param.second.to_qstring(),
       true);
+    // mark this row as a deletable param so itemSelectionChanged can detect it
+    property_editor->item(row, 0)->setData(Qt::UserRole, true);
     row++;
   }
 
   add_param_button->setEnabled(true);
   add_param_button->setProperty("object_type", QVariant("vertex"));
+  delete_param_button->setProperty("object_type", QVariant("vertex"));
+  // delete_param_button enable state is managed by itemSelectionChanged
 
   property_editor->blockSignals(false);  // re-enable callbacks
 }
