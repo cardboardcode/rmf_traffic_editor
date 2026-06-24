@@ -1,0 +1,43 @@
+# Git metadata
+.git
+.gitignore
+
+# ROS 2 workspace artifacts (CRITICAL: prevent local build from invalidating Docker cache)
+build/
+install/
+log/
+
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.tox/
+.coverage
+htmlcov/
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker and CI/CD
+Dockerfile
+.dockerignore
+.github/
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# Local temporary files and logs
+*.log
+*.tmp
+*.tmp_
+*.bak
+*.swp
+
+# Node modules (if any)
+node_modules/
